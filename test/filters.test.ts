@@ -31,11 +31,31 @@ function makeEventWithDtstart(dtstart: string): CalendarEvent {
   return cal.events[0]!;
 }
 
+function makeRecurringEvent(dtstart: string, rrule: string): CalendarEvent {
+  const isDate = dtstart.length === 8;
+  const params = isDate ? "VALUE=DATE" : "";
+  const cal = parseCalendar(
+    [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:recurring",
+      `DTSTART${params ? `;${params}` : ""}:${dtstart}`,
+      `RRULE:${rrule}`,
+      "SUMMARY:Recurring",
+      "END:VEVENT",
+      "END:VCALENDAR",
+      "",
+    ].join("\n"),
+  );
+  return cal.events[0]!;
+}
+
 const NOW = new Date(2026, 5, 24);
 
-test("FILTER_MODES has 4 modes in order: today, weekly, monthly, all", () => {
-  expect(FILTER_MODES).toEqual(["today", "weekly", "monthly", "all"]);
-  expect(FILTER_MODES).toHaveLength(4);
+test("FILTER_MODES has 5 modes in order: today, weekly, monthly, future, all", () => {
+  expect(FILTER_MODES).toEqual(["today", "weekly", "monthly", "future", "all"]);
+  expect(FILTER_MODES).toHaveLength(5);
 });
 
 test("DEFAULT_FILTER is weekly", () => {
@@ -46,6 +66,7 @@ test("FILTER_LABELS has display names for all modes", () => {
   expect(FILTER_LABELS.today).toBe("Today");
   expect(FILTER_LABELS.weekly).toBe("Weekly");
   expect(FILTER_LABELS.monthly).toBe("Monthly");
+  expect(FILTER_LABELS.future).toBe("All future");
   expect(FILTER_LABELS.all).toBe("All");
 });
 
@@ -204,20 +225,22 @@ test("filterEntries preserves entry properties", () => {
 test("nextFilter cycles through all modes", () => {
   expect(nextFilter("today")).toBe("weekly");
   expect(nextFilter("weekly")).toBe("monthly");
-  expect(nextFilter("monthly")).toBe("all");
+  expect(nextFilter("monthly")).toBe("future");
+  expect(nextFilter("future")).toBe("all");
   expect(nextFilter("all")).toBe("today");
 });
 
-test("filterByNumber returns correct mode for 1-4", () => {
+test("filterByNumber returns correct mode for 1-5", () => {
   expect(filterByNumber(1)).toBe("today");
   expect(filterByNumber(2)).toBe("weekly");
   expect(filterByNumber(3)).toBe("monthly");
-  expect(filterByNumber(4)).toBe("all");
+  expect(filterByNumber(4)).toBe("future");
+  expect(filterByNumber(5)).toBe("all");
 });
 
 test("filterByNumber returns null for invalid numbers", () => {
   expect(filterByNumber(0)).toBeNull();
-  expect(filterByNumber(5)).toBeNull();
+  expect(filterByNumber(6)).toBeNull();
   expect(filterByNumber(-1)).toBeNull();
 });
 
@@ -244,4 +267,70 @@ test("eventInRange handles event with no DTSTART", () => {
 test("FilterMode type is usable", () => {
   const m: FilterMode = "today";
   expect(FILTER_LABELS[m]).toBe("Today");
+});
+
+test("future filter includes events today", () => {
+  const ev = makeEventWithDtstart("20260624");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter includes events after today", () => {
+  const ev = makeEventWithDtstart("20260625");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter excludes past non-recurring events", () => {
+  const ev = makeEventWithDtstart("20260623");
+  expect(eventInRange(ev, "future", NOW)).toBe(false);
+});
+
+test("future filter includes past recurring events without UNTIL", () => {
+  const ev = makeRecurringEvent("20200101", "FREQ=YEARLY");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter includes past recurring events with future UNTIL", () => {
+  const ev = makeRecurringEvent("20200101", "FREQ=YEARLY;UNTIL=20271231");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter excludes past recurring events with past UNTIL", () => {
+  const ev = makeRecurringEvent("20200101", "FREQ=YEARLY;UNTIL=20251231");
+  expect(eventInRange(ev, "future", NOW)).toBe(false);
+});
+
+test("future filter excludes past recurring events with UNTIL ending today", () => {
+  const ev = makeRecurringEvent("20200101", "FREQ=DAILY;UNTIL=20260623");
+  expect(eventInRange(ev, "future", NOW)).toBe(false);
+});
+
+test("future filter includes recurring event with UNTIL today", () => {
+  const ev = makeRecurringEvent("20200101", "FREQ=DAILY;UNTIL=20260624");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter works with timed events", () => {
+  const ev = makeEventWithDtstart("20260624T113000");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("future filter works with UTC events", () => {
+  const ev = makeEventWithDtstart("20260625T113000Z");
+  expect(eventInRange(ev, "future", NOW)).toBe(true);
+});
+
+test("filterEntries for 'future' keeps future and recurring, drops past non-recurring", () => {
+  const entries = [
+    { event: makeEventWithDtstart("20200101"), filePath: "", calendarName: "Past" },
+    {
+      event: makeRecurringEvent("20200101", "FREQ=YEARLY"),
+      filePath: "",
+      calendarName: "Recurring",
+    },
+    { event: makeEventWithDtstart("20260624"), filePath: "", calendarName: "Today" },
+    { event: makeEventWithDtstart("20260701"), filePath: "", calendarName: "Future" },
+  ];
+  const filtered = filterEntries(entries, "future", NOW);
+  expect(filtered).toHaveLength(3);
+  expect(filtered.map((e) => e.calendarName)).toEqual(["Recurring", "Today", "Future"]);
 });

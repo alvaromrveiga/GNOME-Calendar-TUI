@@ -1,14 +1,15 @@
 import type { CalendarEvent } from "./ics";
 import { findLine, isAllDay } from "./ics";
 
-export type FilterMode = "today" | "weekly" | "monthly" | "all";
+export type FilterMode = "today" | "weekly" | "monthly" | "future" | "all";
 
-export const FILTER_MODES: FilterMode[] = ["today", "weekly", "monthly", "all"];
+export const FILTER_MODES: FilterMode[] = ["today", "weekly", "monthly", "future", "all"];
 
 export const FILTER_LABELS: Record<FilterMode, string> = {
   today: "Today",
   weekly: "Weekly",
   monthly: "Monthly",
+  future: "All future",
   all: "All",
 };
 
@@ -18,6 +19,25 @@ function eventStartYmd(ev: CalendarEvent): string {
   const ds = findLine(ev, "DTSTART");
   if (!ds || ds.value.length < 8) return "99999999";
   return ds.value.slice(0, 8);
+}
+
+function rruleUntilYmd(ev: CalendarEvent): string | null {
+  const r = findLine(ev, "RRULE");
+  if (!r) return null;
+  const m = r.value.match(/UNTIL=(\d{8})(?:T\d{6}Z?)?/);
+  if (!m) return null;
+  return m[1] ?? null;
+}
+
+export function eventInFuture(ev: CalendarEvent, now = new Date()): boolean {
+  const today = todayYmd(now);
+  const evStart = eventStartYmd(ev);
+  if (evStart >= today) return true;
+  const rrule = findLine(ev, "RRULE");
+  if (!rrule) return false;
+  const until = rruleUntilYmd(ev);
+  if (until && until < today) return false;
+  return true;
 }
 
 function todayYmd(now = new Date()): string {
@@ -73,6 +93,7 @@ export function filterRange(mode: FilterMode, now = new Date()): { start: string
 
 export function eventInRange(ev: CalendarEvent, mode: FilterMode, now = new Date()): boolean {
   if (mode === "all") return true;
+  if (mode === "future") return eventInFuture(ev, now);
   const { start, end } = filterRange(mode, now);
   const evStart = eventStartYmd(ev);
   return evStart >= start && evStart <= end;
