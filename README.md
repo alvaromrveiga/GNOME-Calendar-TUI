@@ -2,6 +2,8 @@
 
 A terminal user interface for viewing and managing [GNOME Calendar](https://apps.gnome.org/Calendar/) events, powered by [Bun](https://bun.com) and [OpenTUI](https://github.com/opentui/core). Uses vim-style motions for all navigation and editing. Reads and writes the same iCalendar (`.ics`) files that Evolution Data Server uses as its local backend, so changes appear in GNOME Calendar automatically.
 
+![Image demostrating the application opened and filtering weekly calendars](https://github.com/alvaromrveiga/GNOME-Calendar-TUI/blob/08fb873df6577310e5374fadf4af5edd4f72e9d3/assets/demo.png)
+
 Made with GLM 5.2.
 
 ## Features
