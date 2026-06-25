@@ -1,41 +1,41 @@
 import {
-  createCliRenderer,
   BoxRenderable,
-  TextRenderable,
-  InputRenderable,
-  t,
-  fg,
   bg,
   bold,
-  underline,
-  type KeyEvent,
   type CliRenderer,
+  createCliRenderer,
+  fg,
+  InputRenderable,
+  type KeyEvent,
+  TextRenderable,
+  t,
+  underline,
 } from "@opentui/core";
 import {
-  eventToForm,
-  createEvent,
+  allEntries,
+  type CalendarFile,
+  computeDefaultTzid,
+  DEFAULT_CAL_DIR,
+  defaultCalendarForNew,
+  type EventEntry,
+  loadSingleFile,
+  notifyEvolution,
+  scanCalendarDir,
+  truncateName,
+  writeCalendarFile,
+} from "./src/calendars";
+import {
   applyEdit,
-  getSummary,
-  getTzid,
-  getRRuleFreq,
-  findLine,
+  createEvent,
   eventDateStr,
   eventTimeStr,
+  eventToForm,
   type FormData,
+  findLine,
+  getRRuleFreq,
+  getSummary,
+  getTzid,
 } from "./src/ics";
-import {
-  DEFAULT_CAL_DIR,
-  scanCalendarDir,
-  loadSingleFile,
-  allEntries,
-  computeDefaultTzid,
-  defaultCalendarForNew,
-  writeCalendarFile,
-  notifyEvolution,
-  truncateName,
-  type CalendarFile,
-  type EventEntry,
-} from "./src/calendars";
 
 const BG = "#0d1117";
 const TEXT = "#c9d1d9";
@@ -189,9 +189,9 @@ function multiCalendar(): boolean {
 function renderHeader(): void {
   const count = entries.length;
   const recurring = entries.filter((e) => getRRuleFreq(e.event) !== null).length;
-  const countLabel = count + " event" + (count === 1 ? "" : "s");
+  const countLabel = `${count} event${count === 1 ? "" : "s"}`;
   const recLabel = recurring ? `  (${recurring} recurring)` : "";
-  const calLabel = files.length + " calendar" + (files.length === 1 ? "" : "s");
+  const calLabel = `${files.length} calendar${files.length === 1 ? "" : "s"}`;
   const source = singleFile ?? baseDir;
   titleText.content = t` ${bold(fg(ACCENT)("Fedora Calendar"))}  ${bold(fg(ACCENT)(countLabel))}${fg(DIM)(recLabel)}  ${fg(DIM)(calLabel)}  ${fg(DIM)(source)}`;
   const calHead = multiCalendar() ? "Calendar".padEnd(CAL_COL) : "";
@@ -286,7 +286,7 @@ function reload(): void {
     render();
     setStatus("Reloaded");
   } catch (e) {
-    setStatus("Reload failed: " + (e instanceof Error ? e.message : String(e)), true);
+    setStatus(`Reload failed: ${e instanceof Error ? e.message : String(e)}`, true);
   }
 }
 
@@ -299,7 +299,7 @@ function writeFile(file: CalendarFile): boolean {
     writeCalendarFile(file);
     return true;
   } catch (e) {
-    setStatus("Write failed: " + (e instanceof Error ? e.message : String(e)), true);
+    setStatus(`Write failed: ${e instanceof Error ? e.message : String(e)}`, true);
     return false;
   }
 }
@@ -522,7 +522,7 @@ function reloadKeepSelected(uid: string): void {
     selectByUid(uid);
     render();
   } catch (e) {
-    setStatus("Reload failed: " + (e instanceof Error ? e.message : String(e)), true);
+    setStatus(`Reload failed: ${e instanceof Error ? e.message : String(e)}`, true);
   }
 }
 
@@ -550,10 +550,18 @@ function openConfirmDelete(): void {
   );
   if (multiCalendar()) {
     box.add(
-      new TextRenderable(renderer, { content: ` From: ${entry.calendarName}`, fg: DIM })
+      new TextRenderable(renderer, {
+        content: ` From: ${entry.calendarName}`,
+        fg: DIM,
+      })
     );
   }
-  box.add(new TextRenderable(renderer, { content: " This cannot be undone.", fg: DIM }));
+  box.add(
+    new TextRenderable(renderer, {
+      content: " This cannot be undone.",
+      fg: DIM,
+    })
+  );
   box.add(new TextRenderable(renderer, { content: " [y] yes   [n/Esc] no", fg: DIM }));
   overlayBox.add(box);
   overlayBox.visible = true;
@@ -597,7 +605,7 @@ function confirmDelete(): void {
     render();
     setStatus("Event deleted");
   } catch (e) {
-    setStatus("Reload failed: " + (e instanceof Error ? e.message : String(e)), true);
+    setStatus(`Reload failed: ${e instanceof Error ? e.message : String(e)}`, true);
   }
 }
 
@@ -812,9 +820,7 @@ async function main(): Promise<void> {
   try {
     loadAll();
   } catch (e) {
-    console.error(
-      "Cannot load calendars: " + (e instanceof Error ? e.message : String(e))
-    );
+    console.error(`Cannot load calendars: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);
   }
 
@@ -831,7 +837,10 @@ async function main(): Promise<void> {
     flexDirection: "column",
     backgroundColor: BG,
   });
-  titleText = new TextRenderable(renderer, { id: "title", content: " Fedora Calendar" });
+  titleText = new TextRenderable(renderer, {
+    id: "title",
+    content: " Fedora Calendar",
+  });
   colHeaderText = new TextRenderable(renderer, {
     id: "colhead",
     content: " Date       Time    Summary",
