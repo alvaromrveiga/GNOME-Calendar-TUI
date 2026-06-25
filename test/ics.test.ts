@@ -22,7 +22,77 @@ import {
   sortKey,
 } from "../src/ics";
 
-const REAL_FILE = "/home/alvaro/.local/share/evolution/calendar/system/calendar.ics";
+const REALISTIC = [
+  "BEGIN:VCALENDAR",
+  "CALSCALE:GREGORIAN",
+  "PRODID:-//Ximian//NONSGML Evolution Calendar//EN",
+  "VERSION:2.0",
+  "X-EVOLUTION-DATA-REVISION:2026-06-24T20:40:55.233000Z(3)",
+  "BEGIN:VEVENT",
+  "UID:aaa",
+  "DTSTAMP:20251105T154536Z",
+  "DTSTART;VALUE=DATE:20251105",
+  "DTEND;VALUE=DATE:20251106",
+  "SUMMARY:Birthday",
+  "SEQUENCE:0",
+  "RRULE:FREQ=YEARLY",
+  "CREATED:20251105T154607Z",
+  "LAST-MODIFIED:20251105T154641Z",
+  "BEGIN:VALARM",
+  "X-EVOLUTION-ALARM-UID:alarm1",
+  "ACTION:DISPLAY",
+  "DESCRIPTION:Birthday",
+  "TRIGGER;RELATED=START:PT0S",
+  "END:VALARM",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:bbb",
+  "DTSTAMP:20260115T134840Z",
+  "DTSTART;TZID=/freeassociation.sourceforge.net/America/Sao_Paulo:20260119T100000",
+  "DTEND;TZID=/freeassociation.sourceforge.net/America/Sao_Paulo:20260119T110000",
+  "SUMMARY:Weekly Meeting",
+  "SEQUENCE:0",
+  "RRULE:FREQ=WEEKLY",
+  "CREATED:20260115T134928Z",
+  "LAST-MODIFIED:20260119T140000Z",
+  "BEGIN:VALARM",
+  "X-EVOLUTION-ALARM-UID:alarm2",
+  "ACTION:DISPLAY",
+  "DESCRIPTION:Weekly Meeting",
+  "TRIGGER;RELATED=START:-PT15M",
+  "END:VALARM",
+  "BEGIN:VALARM",
+  "X-EVOLUTION-ALARM-UID:alarm3",
+  "ACTION:DISPLAY",
+  "DESCRIPTION:Weekly Meeting 2",
+  "TRIGGER;RELATED=START:-PT1H",
+  "END:VALARM",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:ccc",
+  "DTSTAMP:20260525T180000Z",
+  "DTSTART;TZID=/freeassociation.sourceforge.net/America/Sao_Paulo:20260525T180000",
+  "DTEND;TZID=/freeassociation.sourceforge.net/America/Sao_Paulo:20260525T190000",
+  "SUMMARY:Appointment",
+  "SEQUENCE:0",
+  "CREATED:20260525T170000Z",
+  "LAST-MODIFIED:20260525T180000Z",
+  "BEGIN:VALARM",
+  "X-EVOLUTION-ALARM-UID:alarm4",
+  "ACTION:DISPLAY",
+  "DESCRIPTION:Appointment",
+  "TRIGGER;RELATED=START:-PT30M",
+  "END:VALARM",
+  "BEGIN:VALARM",
+  "X-EVOLUTION-ALARM-UID:alarm5",
+  "ACTION:DISPLAY",
+  "DESCRIPTION:Appointment 2",
+  "TRIGGER;RELATED=START:-PT2H",
+  "END:VALARM",
+  "END:VEVENT",
+  "END:VCALENDAR",
+  "",
+].join("\r\n");
 
 const SAMPLE = [
   "BEGIN:VCALENDAR",
@@ -219,17 +289,23 @@ test("getRRuleFreq parses FREQ", () => {
   expect(getRRuleFreq(cal.events[1]!)).toBeNull();
 });
 
-test("real calendar file parses to 7 events with preserved alarms (read-only)", async () => {
-  const file = Bun.file(REAL_FILE);
-  const raw = await file.text();
-  const cal = parseCalendar(raw);
-  expect(cal.events).toHaveLength(7);
+test("realistic calendar with multiple events, alarms, RRULE, and TZID round-trips", () => {
+  const cal = parseCalendar(REALISTIC);
+  expect(cal.lineEnding).toBe("\r\n");
+  expect(cal.events).toHaveLength(3);
+  expect(cal.events[0]?.alarms).toHaveLength(1);
+  expect(cal.events[1]?.alarms).toHaveLength(2);
+  expect(cal.events[2]?.alarms).toHaveLength(2);
+  expect(getRRuleFreq(cal.events[0]!)).toBe("YEARLY");
+  expect(getRRuleFreq(cal.events[1]!)).toBe("WEEKLY");
+  expect(getTzid(cal.events[1]!)).toBe("/freeassociation.sourceforge.net/America/Sao_Paulo");
   const reSerialized = serializeCalendar(cal);
   const reParsed = parseCalendar(reSerialized);
   expect(reParsed.events).toEqual(cal.events);
   expect(reParsed.headerLines).toEqual(cal.headerLines);
+  expect(reParsed.lineEnding).toBe("\r\n");
   const alarmCounts = cal.events.map((e) => e.alarms.length);
-  expect(alarmCounts).toEqual([1, 1, 2, 2, 2, 2, 2]);
+  expect(alarmCounts).toEqual([1, 2, 2]);
 });
 
 test("delete event reduces count and reserializes correctly", () => {
