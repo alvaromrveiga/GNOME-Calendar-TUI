@@ -1,10 +1,17 @@
 {
 	"$schema": "https://opencode.ai/config.json",
 	"permission": {
-		"bun typecheck *": "allow",
-		"bun test *": "allow",
-		"bun lint *": "allow",
-		"bun format *": "allow",
-		"bun check *": "allow"
+		"bash": {
+			"bun typecheck *": "allow",
+			"bun test *": "allow",
+			"bun lint *": "allow",
+			"bun format *": "allow",
+			"bun check *": "allow",
+			"bun run typecheck *": "allow",
+			"bun run test *": "allow",
+			"bun run lint *": "allow",
+			"bun run format *": "allow",
+			"bun run check *": "allow"
+		}
 	}
 }

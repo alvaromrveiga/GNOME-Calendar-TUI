@@ -1,5 +1,5 @@
 {
-	"name": "calendar_tui_glm_5_2",
+	"name": "gnome_calendar_tui",
 	"module": "index.ts",
 	"type": "module",
 	"private": true,

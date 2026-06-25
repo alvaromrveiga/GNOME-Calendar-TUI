@@ -1,5 +1,6 @@
----
+# AGENTS
 
+## Bun Instructions
 Default to using Bun instead of Node.js.
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
@@ -9,18 +10,8 @@ Default to using Bun instead of Node.js.
 - Use `bun <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
 - Bun automatically loads .env, so don't use dotenv.
 
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
 ## Rules
 - Do not `cd` into the project for every command;
 - After each change, run the commands `bun typecheck`, `bun test`, `bun lint`, `bun check` and  `bun format`;
+- Use `bun test` to run tests.
+- Update README.md after keybinding changes

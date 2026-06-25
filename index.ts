@@ -236,9 +236,7 @@ function rowContent(entry: EventEntry, idx: number, width: number) {
   const time = eventTimeStr(ev);
   const freq = getRRuleFreq(ev);
   const sum = getSummary(ev) || "(no summary)";
-  const calName = multiCalendar()
-    ? truncateName(entry.calendarName, CAL_COL).padEnd(CAL_COL)
-    : "";
+  const calName = multiCalendar() ? truncateName(entry.calendarName, CAL_COL).padEnd(CAL_COL) : "";
   const isSel = idx === selected;
   const indicator = isSel ? ">" : " ";
   const freqSuffix = freq ? ` (${freq})` : "";
@@ -257,7 +255,7 @@ function renderList(): void {
       new TextRenderable(renderer, {
         content: " No events. Press 'n' to create one.",
         fg: DIM,
-      })
+      }),
     );
     return;
   }
@@ -444,13 +442,13 @@ function openEdit(isNew: boolean): void {
     new TextRenderable(renderer, {
       content: " Start/End: YYYY-MM-DD  or  YYYY-MM-DD HH:MM",
       fg: DIM,
-    })
+    }),
   );
   box.add(
     new TextRenderable(renderer, {
       content: " [Enter]/[C-s] save   [Tab]/[S-Tab] next/prev   [Esc] cancel",
       fg: DIM,
-    })
+    }),
   );
 
   clearOverlayInner();
@@ -566,21 +564,21 @@ function openConfirmDelete(): void {
     new TextRenderable(renderer, {
       content: t` ${fg(ERROR)("Delete")} "${sum}"?`,
       fg: TEXT,
-    })
+    }),
   );
   if (multiCalendar()) {
     box.add(
       new TextRenderable(renderer, {
         content: ` From: ${entry.calendarName}`,
         fg: DIM,
-      })
+      }),
     );
   }
   box.add(
     new TextRenderable(renderer, {
       content: " This cannot be undone.",
       fg: DIM,
-    })
+    }),
   );
   box.add(new TextRenderable(renderer, { content: " [y] yes   [n/Esc] no", fg: DIM }));
   overlayBox.add(box);
@@ -668,7 +666,7 @@ function openHelp(): void {
       new TextRenderable(renderer, {
         content: l,
         fg: l.startsWith(" ") && l.trim().length > 0 ? TEXT : DIM,
-      })
+      }),
     );
   }
   overlayBox.add(box);
@@ -726,21 +724,21 @@ function renderFilter(): void {
       box.add(
         new TextRenderable(renderer, {
           content: t` ${bg(SEL_BG)(fg(SEL_FG)(line))}`,
-        })
+        }),
       );
     } else if (isCurrent) {
       box.add(
         new TextRenderable(renderer, {
           content: t` ${fg(ACCENT)(bold(line))}`,
           fg: TEXT,
-        })
+        }),
       );
     } else {
       box.add(
         new TextRenderable(renderer, {
           content: ` ${line}`,
           fg: TEXT,
-        })
+        }),
       );
     }
   }
@@ -748,7 +746,7 @@ function renderFilter(): void {
     new TextRenderable(renderer, {
       content: " j/k move · Enter select · f/Esc close",
       fg: DIM,
-    })
+    }),
   );
   overlayBox.add(box);
   overlayBox.visible = true;
