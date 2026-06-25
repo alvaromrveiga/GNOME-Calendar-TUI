@@ -189,12 +189,40 @@ export function writeCalendarFile(file: CalendarFile): boolean {
   return true;
 }
 
+export const FACTORY_PROCESS_NAME = "evolution-calen";
+
+function factoryRunning(): boolean {
+  try {
+    execSync(`pgrep -x ${FACTORY_PROCESS_NAME}`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function activateFactory(): void {
+  try {
+    execSync(
+      "busctl --user call org.gnome.evolution.dataserver.Calendar8 /org/gnome/evolution/dataserver/CalendarFactory org.gnome.evolution.dataserver.CalendarFactory OpenCalendar s system-calendar",
+      { stdio: "ignore", timeout: 5000 },
+    );
+  } catch {
+    // DBus activation happens automatically on next client access
+  }
+}
+
 export function notifyEvolution(): void {
   try {
-    execSync("pkill -x evolution-calendar-factory", { stdio: "ignore" });
+    execSync(`pkill -x ${FACTORY_PROCESS_NAME}`, { stdio: "ignore" });
   } catch {
-    // not running — nothing to notify
+    // factory not running — we still need to activate it below
   }
+  // Wait for the factory to die if it was running
+  for (let i = 0; i < 20; i++) {
+    if (!factoryRunning()) break;
+    execSync("sleep 0.1");
+  }
+  activateFactory();
 }
 
 export function ensureCalendarFile(path: string, name: string): CalendarFile {

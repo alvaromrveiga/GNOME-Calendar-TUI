@@ -206,7 +206,7 @@ function renderStatus(): void {
   } else if (mode === "normal") {
     left = t` ${fg(ACCENT)("NORMAL")}  ${fg(DIM)("j/k move · C-f/C-b page · C-d/C-u half · e edit · n new · d delete · ? help · q quit")}`;
   } else if (mode === "edit") {
-    left = t` ${fg(ACCENT)("EDIT")}  ${fg(DIM)("[Enter] save · [Tab]/[S-Tab] next/prev field · [Esc] cancel")}`;
+    left = t` ${fg(ACCENT)("EDIT")}  ${fg(DIM)("[Enter]/[C-s] save · [Tab]/[S-Tab] next/prev field · [Esc] cancel")}`;
   } else if (mode === "confirm") {
     left = t` ${fg(ACCENT)("CONFIRM")}  ${fg(DIM)("[y] yes · [n/Esc] no")}`;
   } else {
@@ -221,9 +221,7 @@ function rowContent(entry: EventEntry, idx: number, width: number) {
   const time = eventTimeStr(ev);
   const freq = getRRuleFreq(ev);
   const sum = getSummary(ev) || "(no summary)";
-  const calName = multiCalendar()
-    ? truncateName(entry.calendarName, CAL_COL).padEnd(CAL_COL)
-    : "";
+  const calName = multiCalendar() ? truncateName(entry.calendarName, CAL_COL).padEnd(CAL_COL) : "";
   const isSel = idx === selected;
   const indicator = isSel ? ">" : " ";
   const freqSuffix = freq ? ` (${freq})` : "";
@@ -242,7 +240,7 @@ function renderList(): void {
       new TextRenderable(renderer, {
         content: " No events. Press 'n' to create one.",
         fg: DIM,
-      })
+      }),
     );
     return;
   }
@@ -424,13 +422,13 @@ function openEdit(isNew: boolean): void {
     new TextRenderable(renderer, {
       content: " Start/End: YYYY-MM-DD  or  YYYY-MM-DD HH:MM",
       fg: DIM,
-    })
+    }),
   );
   box.add(
     new TextRenderable(renderer, {
-      content: " [Enter] save   [Tab]/[S-Tab] next/prev   [Esc] cancel",
+      content: " [Enter]/[C-s] save   [Tab]/[S-Tab] next/prev   [Esc] cancel",
       fg: DIM,
-    })
+    }),
   );
 
   clearOverlayInner();
@@ -546,21 +544,21 @@ function openConfirmDelete(): void {
     new TextRenderable(renderer, {
       content: t` ${fg(ERROR)("Delete")} "${sum}"?`,
       fg: TEXT,
-    })
+    }),
   );
   if (multiCalendar()) {
     box.add(
       new TextRenderable(renderer, {
         content: ` From: ${entry.calendarName}`,
         fg: DIM,
-      })
+      }),
     );
   }
   box.add(
     new TextRenderable(renderer, {
       content: " This cannot be undone.",
       fg: DIM,
-    })
+    }),
   );
   box.add(new TextRenderable(renderer, { content: " [y] yes   [n/Esc] no", fg: DIM }));
   overlayBox.add(box);
@@ -629,7 +627,7 @@ function openHelp(): void {
     "  New events are added to the calendar of the",
     "  selected event (or Personal if the list is empty).",
     "",
-    "  In edit form:  [Tab]/[S-Tab] fields, [Enter] save, [Esc] cancel",
+    "  In edit form:  [Tab]/[S-Tab] fields, [Enter]/[C-s] save, [Esc] cancel",
   ];
   const box = new BoxRenderable(renderer, {
     width: 60,
@@ -647,7 +645,7 @@ function openHelp(): void {
       new TextRenderable(renderer, {
         content: l,
         fg: l.startsWith(" ") && l.trim().length > 0 ? TEXT : DIM,
-      })
+      }),
     );
   }
   overlayBox.add(box);
@@ -782,7 +780,7 @@ function handleEditKey(key: KeyEvent): void {
     cycleField(key.shift ? -1 : 1);
     return;
   }
-  if (name === "return") {
+  if (name === "return" || (key.ctrl && name === "s")) {
     saveForm();
     return;
   }

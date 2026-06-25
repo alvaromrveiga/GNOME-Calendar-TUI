@@ -13,10 +13,13 @@ import {
   getSummary,
   getTzid,
   isAllDay,
+  newUid,
+  nowUtcIcs,
   parseCalendar,
   parseUserDt,
   serializeCalendar,
   sortedEvents,
+  sortKey,
 } from "../src/ics";
 
 const REAL_FILE = "/home/alvaro/.local/share/evolution/calendar/system/calendar.ics";
@@ -242,4 +245,57 @@ test("delete event reduces count and reserializes correctly", () => {
 test("Calendar type is exported and usable", () => {
   const cal: Calendar = parseCalendar(SAMPLE);
   expect(cal.lineEnding).toBe("\n");
+});
+
+test("nowUtcIcs produces YYYYMMDDTHHMMSSZ format", () => {
+  const ts = nowUtcIcs();
+  expect(ts).toMatch(/^\d{8}T\d{6}Z$/);
+  expect(ts).toHaveLength(16);
+});
+
+test("newUid returns a 40-char hex string (20 random bytes)", () => {
+  const uid = newUid();
+  expect(uid).toHaveLength(40);
+  expect(uid).toMatch(/^[0-9a-f]{40}$/);
+});
+
+test("newUid generates unique values", () => {
+  const a = newUid();
+  const b = newUid();
+  expect(a).not.toBe(b);
+});
+
+test("sortKey returns DTSTART value for timed events", () => {
+  const cal = parseCalendar(SAMPLE);
+  const key = sortKey(cal.events[1]!);
+  expect(key).toBe("20260119T113000");
+});
+
+test("sortKey appends T000000 for all-day events", () => {
+  const cal = parseCalendar(SAMPLE);
+  const key = sortKey(cal.events[0]!);
+  expect(key).toBe("20251105T000000");
+});
+
+test("sortKey strips trailing Z from UTC times", () => {
+  const cal = parseCalendar(
+    [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:zzz",
+      "DTSTART:20260315T100000Z",
+      "SUMMARY:UTC Event",
+      "END:VEVENT",
+      "END:VCALENDAR",
+      "",
+    ].join("\n"),
+  );
+  const key = sortKey(cal.events[0]!);
+  expect(key).toBe("20260315T100000");
+});
+
+test("sortKey returns sentinel for events without DTSTART", () => {
+  const ev = { lines: [{ name: "UID", params: "", value: "x" }], alarms: [] };
+  expect(sortKey(ev)).toBe("99999999T999999");
 });
