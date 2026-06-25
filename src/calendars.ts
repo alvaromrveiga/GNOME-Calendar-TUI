@@ -212,17 +212,9 @@ function activateFactory(): void {
 }
 
 export function notifyEvolution(): void {
-  try {
-    execSync(`pkill -x ${FACTORY_PROCESS_NAME}`, { stdio: "ignore" });
-  } catch {
-    // factory not running — we still need to activate it below
+  if (!factoryRunning()) {
+    activateFactory();
   }
-  // Wait for the factory to die if it was running
-  for (let i = 0; i < 20; i++) {
-    if (!factoryRunning()) break;
-    execSync("sleep 0.1");
-  }
-  activateFactory();
 }
 
 export function ensureCalendarFile(path: string, name: string): CalendarFile {

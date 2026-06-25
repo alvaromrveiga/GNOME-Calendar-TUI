@@ -100,49 +100,46 @@ test("FACTORY_PROCESS_NAME matches actual evolution-calendar-factory comm", () =
   }
 });
 
-test("notifyEvolution kills a process named evolution-calen", () => {
-  // Create a real process with comm = evolution-calen by copying sleep
+test("notifyEvolution does NOT kill the factory process", () => {
+  // Spawn a fake evolution-calen process
   const tmp = mkdtempSync(join(tmpdir(), "notify-test-"));
   const fakeBin = join(tmp, "evolution-calen");
   execSync(`cp /usr/bin/sleep "${fakeBin}"`);
   const child = spawn(fakeBin, ["10"], { stdio: "ignore", detached: true });
   const pid = child.pid;
-  if (!pid) {
-    throw new Error("Failed to spawn dummy process");
-  }
-  // Give the kernel a moment to set comm
+  if (!pid) throw new Error("Failed to spawn dummy process");
   const comm = readFileSync(`/proc/${pid}/comm`, "utf8").trim();
   expect(comm).toBe("evolution-calen");
 
   notifyEvolution();
 
-  // Wait for the process to die
-  let dead = false;
-  for (let i = 0; i < 50; i++) {
-    try {
-      process.kill(pid, 0);
-    } catch {
-      dead = true;
-      break;
-    }
-    execSync("sleep 0.1");
+  // The process must still be alive — notifyEvolution must NOT kill it
+  execSync("sleep 0.5");
+  let stillAlive = false;
+  try {
+    process.kill(pid, 0);
+    stillAlive = true;
+  } catch {
+    stillAlive = false;
   }
-  expect(dead).toBe(true);
+  expect(stillAlive).toBe(true);
+
+  // Cleanup
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {}
   rmSync(tmp, { recursive: true });
 });
 
-test("notifyEvolution does NOT return early when factory is not running", () => {
-  // Ensure no evolution-calen process exists (kill any fake ones from prior tests)
+test("notifyEvolution activates factory when not running", () => {
+  // Ensure no evolution-calen process exists
   try {
     execSync("pkill -x evolution-calen", { stdio: "ignore" });
   } catch {
     // expected — not running
   }
-  execSync("sleep 0.2");
+  execSync("sleep 0.3");
 
-  // notifyEvolution must not throw and must still try to activate the factory
-  // (the bug was: it returned early without activating when pkill failed)
-  // We verify by checking that the real factory gets activated
   let wasRunning = false;
   try {
     execSync("pgrep -x evolution-calen", { stdio: "ignore" });
@@ -153,7 +150,6 @@ test("notifyEvolution does NOT return early when factory is not running", () => 
 
   notifyEvolution();
 
-  // After notifyEvolution, the factory should be running (activated by busctl)
   execSync("sleep 1");
   let nowRunning = false;
   try {
@@ -162,7 +158,6 @@ test("notifyEvolution does NOT return early when factory is not running", () => 
   } catch {
     nowRunning = false;
   }
-  // If factory wasn't running before, it must be running now
   if (!wasRunning) {
     expect(nowRunning).toBe(true);
   }
