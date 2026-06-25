@@ -25,6 +25,14 @@ import {
   writeCalendarFile,
 } from "./src/calendars";
 import {
+  DEFAULT_FILTER,
+  FILTER_LABELS,
+  FILTER_MODES,
+  type FilterMode,
+  filterByNumber,
+  filterEntries,
+} from "./src/filters";
+import {
   applyEdit,
   createEvent,
   eventDateStr,
@@ -48,13 +56,15 @@ const ERROR = "#f85149";
 const OK = "#3fb950";
 const CAL_COL = 10;
 
-type Mode = "normal" | "edit" | "confirm" | "help";
+type Mode = "normal" | "edit" | "confirm" | "help" | "filter";
 
 let renderer: CliRenderer;
 let baseDir: string;
 let singleFile: string | null = null;
 let files: CalendarFile[] = [];
+let allEventEntries: EventEntry[] = [];
 let entries: EventEntry[] = [];
+let currentFilter: FilterMode = DEFAULT_FILTER;
 let defaultTzid: string | null = null;
 let selected = 0;
 let topIndex = 0;
@@ -79,6 +89,8 @@ let form: {
 } | null = null;
 let confirmBox: BoxRenderable | null = null;
 let helpBox: BoxRenderable | null = null;
+let filterBox: BoxRenderable | null = null;
+let filterCursor = 0;
 
 let appBox: BoxRenderable;
 let titleText: TextRenderable;
@@ -193,7 +205,8 @@ function renderHeader(): void {
   const recLabel = recurring ? `  (${recurring} recurring)` : "";
   const calLabel = `${files.length} calendar${files.length === 1 ? "" : "s"}`;
   const source = singleFile ?? baseDir;
-  titleText.content = t` ${bold(fg(ACCENT)("Fedora Calendar"))}  ${bold(fg(ACCENT)(countLabel))}${fg(DIM)(recLabel)}  ${fg(DIM)(calLabel)}  ${fg(DIM)(source)}`;
+  const filterLabel = fg(ACCENT)(`Filter: ${FILTER_LABELS[currentFilter]}`);
+  titleText.content = t` ${bold(fg(ACCENT)("Fedora Calendar"))}  ${bold(fg(ACCENT)(countLabel))}${fg(DIM)(recLabel)}  ${fg(DIM)(calLabel)}  ${filterLabel}  ${fg(DIM)(source)}`;
   const calHead = multiCalendar() ? "Calendar".padEnd(CAL_COL) : "";
   colHeaderText.content = t`${fg(DIM)(underline(` ${"Date".padEnd(12)}${"Time".padEnd(9)}${calHead}Summary`))}`;
 }
@@ -204,11 +217,13 @@ function renderStatus(): void {
   if (statusMsg) {
     left = t` ${fg(color)(statusMsg)}`;
   } else if (mode === "normal") {
-    left = t` ${fg(ACCENT)("NORMAL")}  ${fg(DIM)("j/k move · C-f/C-b page · C-d/C-u half · e edit · n new · d delete · ? help · q quit")}`;
+    left = t` ${fg(ACCENT)("NORMAL")}  ${fg(DIM)("j/k move · C-f/C-b page · C-d/C-u half · e edit · n new · d delete · f filter · ? help · q quit")}`;
   } else if (mode === "edit") {
     left = t` ${fg(ACCENT)("EDIT")}  ${fg(DIM)("[Enter]/[C-s] save · [Tab]/[S-Tab] next/prev field · [Esc] cancel")}`;
   } else if (mode === "confirm") {
     left = t` ${fg(ACCENT)("CONFIRM")}  ${fg(DIM)("[y] yes · [n/Esc] no")}`;
+  } else if (mode === "filter") {
+    left = t` ${fg(ACCENT)("FILTER")}  ${fg(DIM)("[j/k] move · [Enter] select · [1-4] jump · [f/Esc] close")}`;
   } else {
     left = t` ${fg(ACCENT)("HELP")}  ${fg(DIM)("[?/Esc] close")}`;
   }
@@ -266,14 +281,19 @@ function render(): void {
   renderStatus();
 }
 
+function applyFilter(): void {
+  entries = filterEntries(allEventEntries, currentFilter);
+}
+
 function loadAll(): void {
   if (singleFile) {
     files = loadSingleFile(singleFile);
   } else {
     files = scanCalendarDir(baseDir);
   }
-  entries = allEntries(files);
-  defaultTzid = computeDefaultTzid(entries);
+  allEventEntries = allEntries(files);
+  defaultTzid = computeDefaultTzid(allEventEntries);
+  applyFilter();
 }
 
 function reload(): void {
@@ -620,9 +640,13 @@ function openHelp(): void {
     "  e / Enter    edit selected event",
     "  n            new event",
     "  d            delete selected event",
+    "  f            filter by date (1-4)",
     "  r            reload all calendars",
     "  ?            toggle this help",
     "  q            quit",
+    "",
+    "  Filter options:",
+    "  1 = Today  2 = Weekly (default)  3 = Monthly  4 = All",
     "",
     "  New events are added to the calendar of the",
     "  selected event (or Personal if the list is empty).",
@@ -665,12 +689,99 @@ function closeHelp(): void {
   renderStatus();
 }
 
+function openFilter(): void {
+  clearOverlayInner();
+  filterCursor = FILTER_MODES.indexOf(currentFilter);
+  if (filterCursor < 0) filterCursor = 0;
+  renderFilter();
+  mode = "filter";
+  renderStatus();
+}
+
+function renderFilter(): void {
+  if (filterBox) {
+    filterBox.destroy();
+    filterBox = null;
+  }
+  const box = new BoxRenderable(renderer, {
+    width: 42,
+    borderStyle: "rounded",
+    borderColor: BORDER,
+    title: " Filter ",
+    titleColor: ACCENT,
+    padding: 1,
+    flexDirection: "column",
+    gap: 0,
+    backgroundColor: BG,
+  });
+  for (let i = 0; i < FILTER_MODES.length; i++) {
+    const m = FILTER_MODES[i]!;
+    const label = FILTER_LABELS[m];
+    const num = i + 1;
+    const isCurrent = m === currentFilter;
+    const isCursor = i === filterCursor;
+    const indicator = isCursor ? ">" : " ";
+    const marker = isCurrent ? " ←" : "";
+    const line = `${indicator}${num}  ${label}${marker}`;
+    if (isCursor) {
+      box.add(
+        new TextRenderable(renderer, {
+          content: t` ${bg(SEL_BG)(fg(SEL_FG)(line))}`,
+        }),
+      );
+    } else if (isCurrent) {
+      box.add(
+        new TextRenderable(renderer, {
+          content: t` ${fg(ACCENT)(bold(line))}`,
+          fg: TEXT,
+        }),
+      );
+    } else {
+      box.add(
+        new TextRenderable(renderer, {
+          content: ` ${line}`,
+          fg: TEXT,
+        }),
+      );
+    }
+  }
+  box.add(
+    new TextRenderable(renderer, {
+      content: " j/k move · Enter select · f/Esc close",
+      fg: DIM,
+    }),
+  );
+  overlayBox.add(box);
+  overlayBox.visible = true;
+  filterBox = box;
+}
+
+function closeFilter(): void {
+  if (filterBox) {
+    filterBox.destroy();
+    filterBox = null;
+  }
+  overlayBox.visible = false;
+  mode = "normal";
+  renderStatus();
+}
+
+function setFilter(mode: FilterMode): void {
+  currentFilter = mode;
+  applyFilter();
+  if (selected >= entries.length) selected = Math.max(0, entries.length - 1);
+  adjustViewport();
+  render();
+  setStatus(`Filter: ${FILTER_LABELS[mode]}`);
+}
+
 function clearOverlayInner(): void {
   const kids = overlayBox.getChildren();
   for (const k of kids) k.destroy();
   form = null;
   confirmBox = null;
   helpBox = null;
+  filterBox = null;
 }
 
 function quit(): void {
@@ -760,6 +871,10 @@ function handleNormalKey(key: KeyEvent): void {
     reload();
     return;
   }
+  if (lower === "f") {
+    openFilter();
+    return;
+  }
   if (key.sequence === "?" || lower === "?") {
     openHelp();
     return;
@@ -802,6 +917,39 @@ function handleHelpKey(key: KeyEvent): void {
   const lower = (key.name ?? "").toLowerCase();
   if (lower === "?" || key.name === "escape") {
     closeHelp();
+    return;
+  }
+}
+
+function handleFilterKey(key: KeyEvent): void {
+  const lower = (key.name ?? "").toLowerCase();
+  if (lower === "f" || key.name === "escape") {
+    closeFilter();
+    return;
+  }
+  if (lower === "j" || key.name === "down") {
+    filterCursor = Math.min(filterCursor + 1, FILTER_MODES.length - 1);
+    renderFilter();
+    return;
+  }
+  if (lower === "k" || key.name === "up") {
+    filterCursor = Math.max(filterCursor - 1, 0);
+    renderFilter();
+    return;
+  }
+  if (key.name === "return") {
+    const m = FILTER_MODES[filterCursor];
+    if (m) {
+      setFilter(m);
+      closeFilter();
+    }
+    return;
+  }
+  const n = parseInt(key.sequence ?? lower, 10);
+  const mode = filterByNumber(n);
+  if (mode) {
+    setFilter(mode);
+    closeFilter();
     return;
   }
 }
@@ -896,6 +1044,10 @@ async function main(): Promise<void> {
     }
     if (mode === "help") {
       handleHelpKey(key);
+      return;
+    }
+    if (mode === "filter") {
+      handleFilterKey(key);
       return;
     }
     handleNormalKey(key);
